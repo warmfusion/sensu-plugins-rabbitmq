@@ -94,7 +94,7 @@ class CheckRabbitMQQueueDrainTime < Sensu::Plugin::Check::CLI
     end
 
     if config[:vhost]
-      return rabbitmq_info.queues.select { |x| x['vhost'].match(config[:vhost]) }
+      return rabbitmq_info.queues.select { |x| x['vhost'].match(config[:vhost]) && x['name'].match(config[:filter]) }
     end
 
     rabbitmq_info.queues
@@ -104,9 +104,6 @@ class CheckRabbitMQQueueDrainTime < Sensu::Plugin::Check::CLI
     warn_queues = {}
     crit_queues = {}
     acquire_rabbitmq_queues.each do |queue|
-      if config[:filter]
-        next unless queue['name'].match(config[:filter])
-      end
 
       # we don't care about empty queues and they'll have an infinite drain time so skip them
       next if queue['messages'] == 0 || queue['messages'].nil?
@@ -133,7 +130,11 @@ class CheckRabbitMQQueueDrainTime < Sensu::Plugin::Check::CLI
     elsif !warn_queues.empty?
       warning "Drain time: #{warn_queues.map { |q, c| "#{q} #{c} sec" }.join(', ')}"
     else
-      ok "All (#{acquire_rabbitmq_queues.count}) queues will be drained in under #{config[:warn].to_i} seconds"
+      if acquire_rabbitmq_queues.count == 1
+        ok "#{acquire_rabbitmq_queues[0]['name']} will be drained in under #{config[:warn].to_i} seconds"
+      else
+        ok "All (#{acquire_rabbitmq_queues.count}) queues will be drained in under #{config[:warn].to_i} seconds"
+      end
     end
   end
 end
